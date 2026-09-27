@@ -109,14 +109,14 @@ export default function App() {
         return;
       }
       setConfirmReq({
-        title: 'JSONを読み込む',
+        title: 'データを読み込む',
         message: '現在の入力内容を読み込んだデータで置き換えます。よろしいですか？',
         confirmLabel: '置き換える',
         danger: true,
         onConfirm: () => api.replaceState(r.state),
       });
     } catch {
-      api.setError('読み込めませんでした：JSONとして解釈できません');
+      api.setError('読み込めませんでした：このアプリで出力したデータファイルを選んでください');
     }
   };
 
@@ -126,10 +126,10 @@ export default function App() {
         <h1>割り勘計算</h1>
         <div className="header-actions">
           <button type="button" onClick={exportJson}>
-            JSON書き出し
+            データ出力
           </button>
           <button type="button" onClick={() => fileRef.current?.click()}>
-            JSON読み込み
+            データ読込
           </button>
           <input
             ref={fileRef}
@@ -196,7 +196,7 @@ export default function App() {
       )}
       {api.saveFailed && (
         <div className="banner warn" role="alert">
-          ブラウザへの自動保存に失敗しました。「JSON書き出し」でデータを退避してください。
+          ブラウザへの自動保存に失敗しました。「データ出力」でデータを退避してください。
         </div>
       )}
       {api.error && !confirmReq && !addingPerson && (
