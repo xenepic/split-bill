@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { isExpenseActive, personUsage, sortedPersons } from '../domain/expenseOps';
 import { formatYen } from '../domain/money';
 import type { Expense, Person } from '../domain/types';
@@ -7,6 +7,7 @@ import { AmountInput } from './AmountInput';
 import { CellPanel } from './CellPanel';
 import type { ConfirmRequest } from './Modal';
 import { useSelectAllOnFocus } from './selectAll';
+import { TransposeIcon } from './TransposeIcon';
 import { useTableOrientation } from './useTableOrientation';
 
 type Props = {
@@ -224,6 +225,22 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
   const [orientation, toggleOrientation] = useTableOrientation();
   const personsAsRows = orientation === 'persons-rows';
 
+  // 列（参加者が縦なら支出、横なら参加者）が増えたら、追加された列が見えるよう右端までスクロール。
+  // 向きの切替では列数が変わってもスクロールしない。
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const columnCount = personsAsRows ? expenses.length : persons.length;
+  const prevColumns = useRef({ orientation, count: columnCount });
+  useEffect(() => {
+    const prev = prevColumns.current;
+    prevColumns.current = { orientation, count: columnCount };
+    if (prev.orientation !== orientation || columnCount <= prev.count) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const left = el.scrollWidth - el.clientWidth;
+    if (typeof el.scrollTo === 'function') el.scrollTo({ left, behavior: 'smooth' });
+    else el.scrollLeft = left;
+  }, [orientation, columnCount]);
+
   const openExpense = open && state.expenses.find((e) => e.id === open.expenseId);
   const openPerson = open && persons.find((p) => p.id === open.personId);
 
@@ -262,11 +279,11 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
         <button
           type="button"
           className="icon-btn orient-btn"
-          aria-label={`表の縦横を切り替え（現在: 参加者が${personsAsRows ? '縦' : '横'}）`}
-          title="表の縦横を切り替え"
+          aria-label={`行と列を入れ替え（現在: 参加者が${personsAsRows ? '縦' : '横'}）`}
+          title="行と列を入れ替え"
           onClick={toggleOrientation}
         >
-          ⇄
+          <TransposeIcon />
         </button>
       </div>
     </th>
@@ -292,7 +309,7 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
           <b>太字</b>=支払額、<span className="owed-amount">赤字</span>=負担額、🔒=固定、—=対象外
         </span>
       </p>
-      <div className="table-scroll">
+      <div className="table-scroll" ref={scrollRef}>
         {personsAsRows ? (
           <table className="expense-table persons-rows">
             <thead>

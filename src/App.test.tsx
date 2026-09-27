@@ -239,7 +239,7 @@ describe('App', () => {
     // PC 幅（jsdom）では参加者が横
     const table = () => screen.getByRole('region', { name: '支出入力' }).querySelector('table')!;
     expect(table()).toHaveClass('persons-cols');
-    await user.click(screen.getByRole('button', { name: /表の縦横を切り替え/ }));
+    await user.click(screen.getByRole('button', { name: /行と列を入れ替え/ }));
     expect(table()).toHaveClass('persons-rows');
 
     // 参加者が行見出しになる
@@ -263,6 +263,35 @@ describe('App', () => {
     unmount();
     render(<App />);
     expect(table()).toHaveClass('persons-rows');
+  });
+
+  it('列を追加したら表を右端までスクロール（縦: 支出、横: 参加者）。向きの切替ではスクロールしない', async () => {
+    const user = userEvent.setup();
+    const calls: ScrollToOptions[] = [];
+    const original = Element.prototype.scrollTo;
+    Element.prototype.scrollTo = function (this: Element, opts?: ScrollToOptions | number) {
+      if (this.classList.contains('table-scroll') && typeof opts === 'object') calls.push(opts);
+    } as typeof Element.prototype.scrollTo;
+    try {
+      render(<App />);
+      // 横: 参加者の追加
+      await user.click(screen.getByRole('button', { name: '参加者を追加' }));
+      expect(calls).toHaveLength(0); // ダイアログを開いただけではスクロールしない
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '追加' }));
+      expect(calls).toHaveLength(1);
+      // 横: 支出（行）の追加ではスクロールしない
+      await user.click(screen.getByRole('button', { name: '支出を追加' }));
+      expect(calls).toHaveLength(1);
+      // 向きの切替ではスクロールしない
+      await user.click(screen.getByRole('button', { name: /行と列を入れ替え/ }));
+      expect(calls).toHaveLength(1);
+      // 縦: 支出（列）の追加
+      await user.click(screen.getByRole('button', { name: '支出を追加' }));
+      expect(calls).toHaveLength(2);
+      expect(calls[1].behavior).toBe('smooth');
+    } finally {
+      Element.prototype.scrollTo = original;
+    }
   });
 
   it('スマホ幅では参加者が縦を既定にする', () => {

@@ -224,12 +224,13 @@ table {
 }
 
 .orient-btn {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.95rem;
-  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orient-btn svg {
+  display: block;
 }
 
 .expense-table thead .title-head {
