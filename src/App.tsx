@@ -3,6 +3,7 @@ import { computeBalances } from './domain/balance';
 import { isExpenseActive, nextDefaultName, sortedPersons } from './domain/expenseOps';
 import { computeSettlement } from './domain/settle';
 import { ExpenseTable } from './components/ExpenseTable';
+import { InstallButton } from './components/InstallButton';
 import { ConfirmDialog, Modal, type ConfirmRequest } from './components/Modal';
 import { SettlementPanel } from './components/SettlementPanel';
 import { SummaryTable } from './components/SummaryTable';
@@ -125,6 +126,7 @@ export default function App() {
       <header className="app-header">
         <h1>割り勘計算</h1>
         <div className="header-actions">
+          <InstallButton />
           <button type="button" onClick={exportJson}>
             データ出力
           </button>

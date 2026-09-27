@@ -602,8 +602,8 @@ table {
     padding: 12px;
   }
   .expense-table .sticky-col {
-    min-width: 96px;
-    max-width: 120px;
+    min-width: 118px;
+    max-width: 130px;
   }
   .expense-table .cell,
   .expense-table thead .title-head,
@@ -612,6 +612,9 @@ table {
   }
   .name-input {
     min-width: 0;
+  }
+  .persons-cols .person-head {
+    min-width: 118px;
   }
   .expense-table .title-head .title-cell {
     padding: 2px 0 2px 2px;
@@ -712,4 +715,19 @@ table {
 
 .collapsible[open] > summary {
   margin-bottom: 6px;
+}
+
+/* ---- PWA ---- */
+.install-steps {
+  padding-left: 1.4em;
+  margin: 8px 0;
+}
+
+.install-steps li {
+  margin: 6px 0;
+}
+
+.inline-icon {
+  display: inline-block;
+  vertical-align: -3px;
 }

@@ -1,6 +1,6 @@
 # 割り勘計算
 
-複数人の立替払いを1つの表で入力し、各人の収支と送金回数が最小になる精算方法を表示する Web アプリです（仕様: `split-bill-spec.md` v1.2）。
+複数人の立替払いを1つの表で入力し、各人の収支と送金回数が最小になる精算方法を表示する Web アプリです（仕様: `split-bill-spec.md` v1.3）。
 ログイン・サーバー・外部送信はありません。データはブラウザの localStorage に自動保存されます。
 
 ## 起動
@@ -43,6 +43,18 @@ npm run typecheck  # 型チェック
   - 損はできるだけ小さく（通常は50円以内）。払う側の得は50円まで、受け取る側の得は上限なし（1人が立て替えた場合など、立替者が50円を超えて得をすることがあります）。
   - 同じ条件なら、支払総額が多い人ほど得が大きくなるように選びます。
   - そろえると損が99円を超える場合だけ、一人ずつ丸める方式（全員±49円以内。同じ収支の人が分かれることがあります）に切り替え、画面にその旨を表示します。
+
+## PWA（ホーム画面から起動・オフライン）
+
+- `vite-plugin-pwa` で Web App Manifest と Service Worker を生成します（`npm run build` 時に `dist/manifest.webmanifest`・`dist/sw.js`）。ホーム画面から起動すると全画面（`display: standalone`）で動作します。
+- 画面上部の「ホーム画面に追加」ボタン:
+  - Android Chrome / PC Chrome・Edge: ブラウザのインストール画面を表示します（`beforeinstallprompt`）。
+  - iPhone / iPad: Safari の共有メニューから追加する手順を案内します。
+  - インストール済み（ホーム画面から起動中）や、非対応のブラウザでは表示しません。
+- アプリ本体（HTML・JS・CSS・アイコン）をすべて事前キャッシュするため、一度開けばオフラインでも入力・計算できます。データは従来どおり localStorage に保存されます。
+- 新しいバージョンを公開すると、Service Worker が自動で有効化されページを再読込します。古いキャッシュは削除されます（`cleanupOutdatedCaches`）。
+- アイコンの元データは `public/favicon.svg` です。PNG（192px、512px、maskable 512px、Apple Touch Icon 180px）はこの SVG から書き出したものなので、デザインを変える場合は SVG を編集して書き出し直してください。
+- Service Worker は HTTPS（または localhost）でのみ動作します。動作確認は `npm run build && npm run preview` で行ってください（`npm run dev` では Service Worker を登録しません）。
 
 ## 構成
 

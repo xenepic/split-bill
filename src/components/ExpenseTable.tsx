@@ -290,12 +290,12 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
   );
 
   const addExpenseButton = (label: string) => (
-    <button type="button" className="add-btn" aria-label="支出を追加" onClick={api.addExpense}>
+    <button type="button" className="add-btn" aria-label="支出を追加" title="支出を追加" onClick={api.addExpense}>
       {label}
     </button>
   );
   const addPersonButton = (label: string) => (
-    <button type="button" className="add-btn" aria-label="参加者を追加" onClick={onAddPerson}>
+    <button type="button" className="add-btn" aria-label="参加者を追加" title="参加者を追加" onClick={onAddPerson}>
       {label}
     </button>
   );
@@ -341,7 +341,7 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
             </tbody>
             <tfoot>
               <tr>
-                <td className="sticky-col">{addPersonButton('＋ 参加者を追加')}</td>
+                <td className="sticky-col">{addPersonButton('＋')}</td>
                 <td colSpan={expenses.length + 1} />
               </tr>
             </tfoot>
@@ -376,7 +376,7 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
             </tbody>
             <tfoot>
               <tr>
-                <td className="sticky-col">{addExpenseButton('＋ 支出を追加')}</td>
+                <td className="sticky-col">{addExpenseButton('＋')}</td>
                 <td colSpan={persons.length + 1} />
               </tr>
             </tfoot>
