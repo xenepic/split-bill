@@ -62,7 +62,13 @@ export function SettlementPanel({ api, persons, view, viewError }: Props) {
         <h2 id="settle-heading">精算</h2>
         <RoundingToggle mode={mode} onChange={api.setSettlementMode} />
       </div>
-      {mode.kind === 'rounded' && <p className="hint">最終収支を{mode.unit}円単位に調節します</p>}
+      {mode.kind === 'rounded' && (
+        <p className="hint">
+          最終収支を{mode.unit}円単位に調節します
+          {view?.roundingMethod === 'individual' &&
+            `（同じ収支の人をそろえると損が${2 * mode.unit - 1}円を超えるため、一人ずつ調節しています）`}
+        </p>
+      )}
 
       {viewError && (
         <p className="error" role="alert">

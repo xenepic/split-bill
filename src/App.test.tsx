@@ -34,7 +34,7 @@ describe('App', () => {
   it('初期状態: 4人・3行・精算不要', () => {
     render(<App />);
     expect(screen.getAllByLabelText(/^参加者\dの名前$/)).toHaveLength(4);
-    expect(screen.getAllByLabelText(/行目の支出名目$/)).toHaveLength(3);
+    expect(screen.getAllByLabelText(/^支出\dの名目$/)).toHaveLength(3);
     expect(screen.getByText('精算は不要です')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '前のパターン' })).toBeDisabled();
   });
@@ -231,6 +231,50 @@ describe('App', () => {
     const cell = screen.getByRole('button', { name: /支出1 の 参加者1：支払 1,000円/ });
     expect(cell).toHaveTextContent('1,000/250');
     expect(within(cell).getByText('250')).toHaveClass('owed-amount');
+  });
+
+  it('表の縦横切替: 参加者が縦でも入力・Tab 移動ができ、選択を記憶する', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    // PC 幅（jsdom）では参加者が横
+    const table = () => screen.getByRole('region', { name: '支出入力' }).querySelector('table')!;
+    expect(table()).toHaveClass('persons-cols');
+    await user.click(screen.getByRole('button', { name: /表の縦横を切り替え/ }));
+    expect(table()).toHaveClass('persons-rows');
+
+    // 参加者が行見出しになる
+    const rows = within(table()).getAllByRole('row');
+    expect(within(rows[1]).getByLabelText('参加者1の名前')).toBeInTheDocument();
+
+    // 入力は同じように動く
+    await payIn(user, 1, '参加者1', '4000');
+    expect(within(summaryRow('参加者1')).getByText('+3,000円')).toBeInTheDocument();
+
+    // Tab で次の参加者の名前欄へ
+    await user.click(screen.getByLabelText('参加者1の名前'));
+    await user.tab();
+    expect(screen.getByLabelText('参加者2の名前')).toHaveFocus();
+
+    // 列（支出）と行（参加者）の追加ボタン
+    await user.click(screen.getByRole('button', { name: '支出を追加' }));
+    expect(screen.getAllByLabelText(/^支出\dの名目$/)).toHaveLength(4);
+
+    // 選択は再読込後も維持
+    unmount();
+    render(<App />);
+    expect(table()).toHaveClass('persons-rows');
+  });
+
+  it('スマホ幅では参加者が縦を既定にする', () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('max-width'), media: q })) as unknown as typeof window.matchMedia;
+    try {
+      render(<App />);
+      const table = screen.getByRole('region', { name: '支出入力' }).querySelector('table')!;
+      expect(table).toHaveClass('persons-rows');
+    } finally {
+      window.matchMedia = original;
+    }
   });
 
   it('コピー', async () => {

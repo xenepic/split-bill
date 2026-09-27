@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { isExpenseActive, personUsage, sortedPersons } from '../domain/expenseOps';
 import { formatYen } from '../domain/money';
 import type { Expense, Person } from '../domain/types';
@@ -7,6 +7,7 @@ import { AmountInput } from './AmountInput';
 import { CellPanel } from './CellPanel';
 import type { ConfirmRequest } from './Modal';
 import { useSelectAllOnFocus } from './selectAll';
+import { useTableOrientation } from './useTableOrientation';
 
 type Props = {
   api: AppStateApi;
@@ -14,15 +15,30 @@ type Props = {
   onAddPerson: () => void;
 };
 
+/** 名前欄で Tab / Shift+Tab を押したら、表の並びに関係なく前後の名前欄へ移る */
+function moveToSiblingName(e: KeyboardEvent<HTMLInputElement>) {
+  if (e.key !== 'Tab') return;
+  const table = e.currentTarget.closest('table');
+  if (!table) return;
+  const names = [...table.querySelectorAll<HTMLInputElement>('input.name-input')];
+  const next = names[names.indexOf(e.currentTarget) + (e.shiftKey ? -1 : 1)];
+  if (next) {
+    e.preventDefault();
+    next.focus();
+  }
+}
+
 function PersonHeader({
   api,
   person,
   index,
+  scope,
   requestConfirm,
 }: {
   api: AppStateApi;
   person: Person;
   index: number;
+  scope: 'col' | 'row';
   requestConfirm: Props['requestConfirm'];
 }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -52,7 +68,7 @@ function PersonHeader({
     });
   };
   return (
-    <th scope="col" className="person-head">
+    <th scope={scope} className={scope === 'col' ? 'person-head' : 'person-head sticky-col'}>
       <div className="person-head-inner">
         <input
           className="name-input"
@@ -64,6 +80,7 @@ function PersonHeader({
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
             if (e.key === 'Escape') setDraft(null);
+            moveToSiblingName(e);
           }}
         />
         {/* Tab で名前欄から隣の名前欄へ移れるよう、削除ボタンはタブ順から外す */}
@@ -163,16 +180,54 @@ function ExpenseCell({
   );
 }
 
+/** 支出名目の見出しセル（名目の入力と削除ボタン） */
+function ExpenseTitleHeader({
+  api,
+  expense,
+  index,
+  scope,
+  onDelete,
+}: {
+  api: AppStateApi;
+  expense: Expense;
+  index: number;
+  scope: 'col' | 'row';
+  onDelete: () => void;
+}) {
+  return (
+    <th scope={scope} className={scope === 'row' ? 'title-head sticky-col' : 'title-head'}>
+      <div className="title-cell">
+        <input
+          className="title-input"
+          aria-label={`支出${index + 1}の名目`}
+          placeholder={`支出${index + 1}`}
+          defaultValue={expense.title}
+          key={expense.title}
+          onBlur={(ev) => {
+            if (ev.target.value !== expense.title) api.setExpenseTitle(expense.id, ev.target.value);
+          }}
+          onKeyDown={(ev) => ev.key === 'Enter' && (ev.target as HTMLInputElement).blur()}
+        />
+        <button type="button" className="icon-btn" aria-label={`支出${index + 1}を削除`} title="支出を削除" onClick={onDelete}>
+          ×
+        </button>
+      </div>
+    </th>
+  );
+}
+
 export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
   const { state } = api;
   const persons = sortedPersons(state.persons);
   const expenses = [...state.expenses].sort((a, b) => a.order - b.order);
   const [open, setOpen] = useState<{ expenseId: string; personId: string } | null>(null);
+  const [orientation, toggleOrientation] = useTableOrientation();
+  const personsAsRows = orientation === 'persons-rows';
 
   const openExpense = open && state.expenses.find((e) => e.id === open.expenseId);
   const openPerson = open && persons.find((p) => p.id === open.personId);
 
-  const onDeleteRow = (e: Expense) => {
+  const onDeleteExpense = (e: Expense) => {
     if (!isExpenseActive(e) && !e.title) {
       api.removeExpense(e.id);
       return;
@@ -186,93 +241,130 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
     });
   };
 
+  const cell = (e: Expense, row: number, p: Person) => (
+    <ExpenseCell
+      key={`${e.id}:${p.id}`}
+      api={api}
+      expense={e}
+      person={p}
+      rowLabel={e.title || `支出${row + 1}`}
+      onOpen={() => {
+        api.setError(null);
+        setOpen({ expenseId: e.id, personId: p.id });
+      }}
+    />
+  );
+
+  const corner = (
+    <th scope="col" className="corner sticky-col">
+      <div className="corner-inner">
+        <span>{personsAsRows ? '参加者' : '支出名目'}</span>
+        <button
+          type="button"
+          className="icon-btn orient-btn"
+          aria-label={`表の縦横を切り替え（現在: 参加者が${personsAsRows ? '縦' : '横'}）`}
+          title="表の縦横を切り替え"
+          onClick={toggleOrientation}
+        >
+          ⇄
+        </button>
+      </div>
+    </th>
+  );
+
+  const addExpenseButton = (label: string) => (
+    <button type="button" className="add-btn" aria-label="支出を追加" onClick={api.addExpense}>
+      {label}
+    </button>
+  );
+  const addPersonButton = (label: string) => (
+    <button type="button" className="add-btn" aria-label="参加者を追加" onClick={onAddPerson}>
+      {label}
+    </button>
+  );
+
   return (
     <section aria-labelledby="table-heading">
       <h2 id="table-heading">支出入力</h2>
       <p className="hint">
-        未入力の行では、支払った人の列に金額を入力するとその人が支払者になります。
+        未入力の支出では、支払った人の欄に金額を入力するとその人が支払者になります。
         <span className="legend-inline">
           <b>太字</b>=支払額、<span className="owed-amount">赤字</span>=負担額、🔒=固定、—=対象外
         </span>
       </p>
       <div className="table-scroll">
-        <table className="expense-table">
-          <thead>
-            <tr>
-              <th scope="col" className="title-col">
-                支出名目
-              </th>
-              {persons.map((p, i) => (
-                <PersonHeader
-                  key={p.id}
-                  api={api}
-                  person={p}
-                  index={i}
-                  requestConfirm={requestConfirm}
-                />
-              ))}
-              <th scope="col" className="add-col">
-                <button type="button" className="add-btn" aria-label="参加者を追加" onClick={onAddPerson}>
-                  ＋
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((e, row) => (
-              <tr key={e.id}>
-                <th scope="row" className="title-col">
-                  <div className="title-cell">
-                    <input
-                      className="title-input"
-                      aria-label={`${row + 1}行目の支出名目`}
-                      placeholder={`支出${row + 1}`}
-                      defaultValue={e.title}
-                      key={e.title}
-                      onBlur={(ev) => {
-                        if (ev.target.value !== e.title) api.setExpenseTitle(e.id, ev.target.value);
-                      }}
-                      onKeyDown={(ev) => ev.key === 'Enter' && (ev.target as HTMLInputElement).blur()}
-                    />
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      aria-label={`${row + 1}行目を削除`}
-                      title="行を削除"
-                      onClick={() => onDeleteRow(e)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </th>
-                {persons.map((p) => (
-                  <ExpenseCell
-                    key={p.id}
+        {personsAsRows ? (
+          <table className="expense-table persons-rows">
+            <thead>
+              <tr>
+                {corner}
+                {expenses.map((e, i) => (
+                  <ExpenseTitleHeader
+                    key={e.id}
                     api={api}
                     expense={e}
-                    person={p}
-                    rowLabel={e.title || `支出${row + 1}`}
-                    onOpen={() => {
-                      api.setError(null);
-                      setOpen({ expenseId: e.id, personId: p.id });
-                    }}
+                    index={i}
+                    scope="col"
+                    onDelete={() => onDeleteExpense(e)}
                   />
                 ))}
-                <td className="add-col" />
+                <th scope="col" className="add-col">
+                  {addExpenseButton('＋')}
+                </th>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="title-col">
-                <button type="button" className="add-btn" aria-label="支出行を追加" onClick={api.addExpense}>
-                  ＋ 行を追加
-                </button>
-              </td>
-              <td colSpan={persons.length + 1} />
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {persons.map((p, i) => (
+                <tr key={p.id}>
+                  <PersonHeader api={api} person={p} index={i} scope="row" requestConfirm={requestConfirm} />
+                  {expenses.map((e, row) => cell(e, row, p))}
+                  <td className="add-col" />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="sticky-col">{addPersonButton('＋ 参加者を追加')}</td>
+                <td colSpan={expenses.length + 1} />
+              </tr>
+            </tfoot>
+          </table>
+        ) : (
+          <table className="expense-table persons-cols">
+            <thead>
+              <tr>
+                {corner}
+                {persons.map((p, i) => (
+                  <PersonHeader key={p.id} api={api} person={p} index={i} scope="col" requestConfirm={requestConfirm} />
+                ))}
+                <th scope="col" className="add-col">
+                  {addPersonButton('＋')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenses.map((e, row) => (
+                <tr key={e.id}>
+                  <ExpenseTitleHeader
+                    api={api}
+                    expense={e}
+                    index={row}
+                    scope="row"
+                    onDelete={() => onDeleteExpense(e)}
+                  />
+                  {persons.map((p) => cell(e, row, p))}
+                  <td className="add-col" />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="sticky-col">{addExpenseButton('＋ 支出を追加')}</td>
+                <td colSpan={persons.length + 1} />
+              </tr>
+            </tfoot>
+          </table>
+        )}
       </div>
       {openExpense && openPerson && (
         <CellPanel

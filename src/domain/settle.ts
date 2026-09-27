@@ -1,5 +1,5 @@
 import { computeBalances, type PersonBalance } from './balance';
-import { isValidRoundingUnit, roundBalances } from './rounding';
+import { isValidRoundingUnit, roundBalances, type RoundingMethod } from './rounding';
 import { findMinTransferPatterns, type SettlementOptions } from './settlement';
 import { err, ok, type AppState, type Result, type SettlementMode, type Transfer } from './types';
 
@@ -14,6 +14,8 @@ export type SettlementView = {
   minCount: number;
   minCountExact: boolean;
   patternsComplete: boolean;
+  /** 丸めモード時の丸め方式（通常モードでは null） */
+  roundingMethod: RoundingMethod | null;
 };
 
 /** 入力データから精算結果を導出する（元の残高 → 丸め → 最小送金件数探索） */
@@ -28,6 +30,7 @@ export function computeSettlement(
 
   let unit = 1;
   let rows: SettlementRow[];
+  let roundingMethod: RoundingMethod | null = null;
   if (mode.kind === 'rounded') {
     if (!isValidRoundingUnit(mode.unit)) return err('丸め単位が不正です');
     unit = mode.unit;
@@ -37,10 +40,11 @@ export function computeSettlement(
       unit,
     );
     if (!r.ok) return r;
+    roundingMethod = r.value.method;
     rows = balances.map((b, i) => ({
       ...b,
-      settlementBalance: r.value[i].settlementBalance,
-      delta: r.value[i].delta,
+      settlementBalance: r.value.balances[i].settlementBalance,
+      delta: r.value.balances[i].delta,
     }));
   } else {
     rows = balances.map((b) => ({ ...b, settlementBalance: b.balance, delta: 0 }));
@@ -63,5 +67,6 @@ export function computeSettlement(
     minCount: search.minCount,
     minCountExact: search.minCountExact,
     patternsComplete: search.patternsComplete,
+    roundingMethod,
   });
 }

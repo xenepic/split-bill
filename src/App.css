@@ -197,7 +197,7 @@ table {
   padding: 4px;
 }
 
-.expense-table .title-col {
+.expense-table .sticky-col {
   position: sticky;
   left: 0;
   background: var(--sticky-bg);
@@ -207,10 +207,38 @@ table {
   font-weight: normal;
 }
 
-.expense-table thead .title-col {
+.expense-table thead .sticky-col {
   z-index: 3;
-  padding: 4px 8px;
+}
+
+.expense-table .corner {
+  padding: 4px 4px 4px 8px;
   font-weight: bold;
+}
+
+.corner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.orient-btn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 0 8px;
+}
+
+.expense-table thead .title-head {
+  min-width: 110px;
+  font-weight: normal;
+}
+
+.persons-rows .person-head .name-input {
+  text-align: left;
 }
 
 .title-cell,
@@ -572,9 +600,27 @@ table {
   .app {
     padding: 12px;
   }
-  .expense-table .title-col {
-    min-width: 108px;
+  .expense-table .sticky-col {
+    min-width: 96px;
     max-width: 120px;
+  }
+  .expense-table .cell,
+  .expense-table thead .title-head,
+  .expense-table .person-head {
+    min-width: 84px;
+  }
+  .name-input {
+    min-width: 0;
+  }
+  .expense-table .title-head .title-cell {
+    padding: 2px 0 2px 2px;
+    gap: 0;
+  }
+  .expense-table .title-head .title-input {
+    padding: 4px 2px;
+  }
+  .expense-table .title-head .icon-btn {
+    padding: 0 4px;
   }
   .summary-table {
     min-width: 0;
