@@ -31,6 +31,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('App', () => {
+  it('表の入力欄はスマホのキーボードで「次へ」ではなく「完了」を出す（確定しても他のセルへ移らない）', () => {
+    render(<App />);
+    const inputs = [
+      ...screen.getAllByLabelText(/^支出\d の .+ の支払額/),
+      ...screen.getAllByLabelText(/^参加者\dの名前$/),
+      ...screen.getAllByLabelText(/^支出\dの名目$/),
+    ];
+    for (const input of inputs) expect(input).toHaveAttribute('enterkeyhint', 'done');
+  });
+
   it('初期状態: 4人・3行・精算不要', () => {
     render(<App />);
     expect(screen.getAllByLabelText(/^参加者\dの名前$/)).toHaveLength(4);

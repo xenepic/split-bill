@@ -606,7 +606,6 @@ table {
     max-width: 130px;
   }
   .expense-table .cell,
-  .expense-table thead .title-head,
   .expense-table .person-head {
     min-width: 84px;
   }
@@ -616,15 +615,26 @@ table {
   .persons-cols .person-head {
     min-width: 118px;
   }
-  .expense-table .title-head .title-cell {
-    padding: 2px 0 2px 2px;
-    gap: 0;
+  /* 参加者が縦のとき、支出名目は列見出しで幅が狭い。×は右上に逃がして入力欄に全幅を使う */
+  .expense-table thead .title-head {
+    min-width: 96px;
   }
-  .expense-table .title-head .title-input {
+  .expense-table thead .title-head .title-cell {
+    position: relative;
+    display: block;
+    padding: 16px 2px 2px;
+  }
+  .expense-table thead .title-head .title-input {
+    display: block;
     padding: 4px 2px;
   }
-  .expense-table .title-head .icon-btn {
-    padding: 0 4px;
+  .expense-table thead .title-head .icon-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0 6px;
+    font-size: 0.9rem;
+    line-height: 18px;
   }
   .summary-table {
     min-width: 0;

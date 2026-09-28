@@ -74,6 +74,7 @@ function PersonHeader({
         <input
           className="name-input"
           aria-label={`参加者${index + 1}の名前`}
+          enterKeyHint="done"
           value={draft ?? person.name}
           {...selectAll}
           onChange={(e) => setDraft(e.target.value)}
@@ -123,6 +124,9 @@ function ExpenseCell({
         <AmountInput
           className="cell-input"
           placeholder="支払額"
+          // 確定すると行の各セルがボタンに変わり「次の入力欄」が意味を持たないため、
+          // スマホのキーボードは「次へ」ではなく「完了」にして、その場で確定するだけにする
+          enterKeyHint="done"
           aria-label={`${label} の支払額（入力するとこの人が支払者になります）`}
           value={null}
           onCommit={(v) => (v === null ? true : api.setPayment(expense.id, person.id, v))}
@@ -202,6 +206,7 @@ function ExpenseTitleHeader({
           className="title-input"
           aria-label={`支出${index + 1}の名目`}
           placeholder={`支出${index + 1}`}
+          enterKeyHint="done"
           defaultValue={expense.title}
           key={expense.title}
           onBlur={(ev) => {
