@@ -227,6 +227,11 @@ export default function App() {
       </main>
       <footer className="app-footer">
         データはこのブラウザ内にのみ保存され、外部へ送信されません。
+        <p className="portal-link">
+          <a href="https://shiodamari.vercel.app/" target="_blank" rel="noopener noreferrer">
+            ひとでの潮だまり
+          </a>
+        </p>
       </footer>
 
       {addingPerson && (
