@@ -10,9 +10,8 @@ export function balanceLabel(b: number) {
 
 export function SummaryTable({ persons, balances }: { persons: Person[]; balances: PersonBalance[] | null }) {
   const name = new Map(persons.map((p) => [p.id, p.name]));
-  // 支払総額の合計 = 負担総額の合計 = 総費用（支払者に関係なく、全支出の合計）
-  const totalPaid = (balances ?? []).reduce((s, b) => s + b.paid, 0);
-  const totalOwed = (balances ?? []).reduce((s, b) => s + b.owed, 0);
+  // 総費用（支払者に関係なく、全支出の合計）。収支の合計は0なので負担総額の合計とも一致する
+  const totalCost = (balances ?? []).reduce((s, b) => s + b.paid, 0);
   return (
     <section aria-labelledby="summary-heading">
       <h2 id="summary-heading">集計</h2>
@@ -46,10 +45,8 @@ export function SummaryTable({ persons, balances }: { persons: Person[]; balance
           {balances && (
             <tfoot>
               <tr className="total-row">
-                <th scope="row">合計（総費用）</th>
-                <td className="num">{formatYen(totalPaid)}円</td>
-                <td className="num">{formatYen(totalOwed)}円</td>
-                <td />
+                <th scope="row">総費用</th>
+                <td colSpan={3}>{formatYen(totalCost)}円</td>
               </tr>
             </tfoot>
           )}

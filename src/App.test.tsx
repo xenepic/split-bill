@@ -270,8 +270,8 @@ describe('App', () => {
     await payIn(user, 1, '参加者1', '1000');
     await payIn(user, 2, '参加者2', '2500');
     const table = screen.getByRole('region', { name: '集計' });
-    const total = within(table).getByRole('row', { name: /^合計（総費用）/ });
-    expect(total).toHaveTextContent('3,500円3,500円');
+    const total = within(table).getByRole('row', { name: /^総費用/ });
+    expect(total).toHaveTextContent(/^総費用3,500円$/);
   });
 
   it('マイナスの支払額（収益）を入力でき、色を変えて表示する', async () => {
