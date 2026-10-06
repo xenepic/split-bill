@@ -1,4 +1,4 @@
-import { formatYen } from '../domain/money';
+import { formatYen, negateYen } from '../domain/money';
 import type { Expense, Person, Share } from '../domain/types';
 import type { AppStateApi } from '../state/useAppState';
 import { AmountInput } from './AmountInput';
@@ -35,14 +35,18 @@ function ShareControls({ api, expense, person, requestConfirm, isPayer }: Props 
               api.setError('負担額を入力してください（固定を外す場合は「固定解除」）');
               return false;
             }
-            return api.setShareAmount(expense.id, person.id, v);
+            // マイナスの行（収益）では負担額も0以下。マイナス記号を打ちにくいスマホ向けに、正の入力は符号を反転する
+            return api.setShareAmount(expense.id, person.id, expense.amount! < 0 && v > 0 ? -v : v);
           }}
           onParseError={api.setError}
         />
         <span>円</span>
         <span className={`mode-badge mode-${share.mode}`}>{modeLabel(share)}</span>
       </div>
-      <p className="hint">金額を変更すると固定され、他の自動分が再配分されます。</p>
+      <p className="hint">
+        金額を変更すると固定され、他の自動分が再配分されます。
+        {expense.amount! < 0 && 'マイナスの行では、入力した金額はマイナス（受け取る額）として扱います。'}
+      </p>
       <div className="button-row">
         {share.mode === 'fixed' && (
           <button type="button" onClick={() => api.setShareMode(expense.id, person.id, 'auto')}>
@@ -125,8 +129,22 @@ export function CellPanel(props: Props) {
               onParseError={api.setError}
             />
             <span>円</span>
+            {/* iPhone の数字キーボードにはマイナス記号がないため、符号はボタンでも切り替えられるようにする */}
+            <button
+              type="button"
+              className="sign-btn"
+              aria-label="支払額のプラス・マイナスを切り替え"
+              title="プラス・マイナスを切り替え"
+              disabled={expense.amount === null}
+              onClick={() => api.setPayment(expense.id, expense.payerId, negateYen(expense.amount))}
+            >
+              ±
+            </button>
           </div>
-          <p className="hint">支払額を空欄または0にすると、この行は未入力に戻ります。</p>
+          <p className="hint">
+            競馬の払戻など収益の場合はマイナスで入力します（みんなで受け取る額になります）。
+            支払額を空欄または0にすると、この行は未入力に戻ります。
+          </p>
         </fieldset>
       )}
       {expense.amount !== null && <ShareControls {...props} isPayer={isPayer} />}

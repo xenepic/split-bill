@@ -33,7 +33,6 @@ function validateShare(v: unknown): v is Share {
     isObj(v) &&
     typeof v.personId === 'string' &&
     isInt(v.amount) &&
-    v.amount >= 0 &&
     (v.mode === 'auto' || v.mode === 'fixed' || v.mode === 'excluded')
   );
 }
@@ -42,7 +41,7 @@ function validateExpense(v: unknown, personIds: Set<string>): v is Expense {
   if (!isObj(v)) return false;
   if (typeof v.id !== 'string' || typeof v.title !== 'string' || !isInt(v.order)) return false;
   if (!(v.payerId === null || (typeof v.payerId === 'string' && personIds.has(v.payerId)))) return false;
-  if (!(v.amount === null || (isInt(v.amount) && v.amount > 0))) return false;
+  if (!(v.amount === null || (isInt(v.amount) && v.amount !== 0))) return false;
   if ((v.payerId === null) !== (v.amount === null)) return false;
   if (!Array.isArray(v.shares) || !v.shares.every(validateShare)) return false;
   const shares = v.shares as Share[];
@@ -52,7 +51,7 @@ function validateExpense(v: unknown, personIds: Set<string>): v is Expense {
   if (v.amount === null) return shares.every((s) => s.mode !== 'fixed');
   const total = shares.reduce((s, x) => s + x.amount, 0);
   if (total !== v.amount) return false;
-  return allocateShares(v.amount, shares, v.payerId as string).ok;
+  return allocateShares(v.amount, shares).ok;
 }
 
 function validateMode(v: unknown): v is SettlementMode {

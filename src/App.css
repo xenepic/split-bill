@@ -7,6 +7,7 @@
   --accent: #2455c3;
   --accent-text: #ffffff;
   --owed: #c62828;
+  --income: #1b6e3a;
   --pos: #1b6e3a;
   --neg: #b3261e;
   --warn-bg: #fff4d6;
@@ -29,6 +30,7 @@
     --accent: #7ea2ff;
     --accent-text: #0b1330;
     --owed: #ff8a80;
+    --income: #6fd08f;
     --pos: #6fd08f;
     --neg: #ff8a80;
     --warn-bg: #3b3218;
@@ -334,6 +336,18 @@ table {
   color: var(--owed);
 }
 
+/* マイナス（収益）の金額。負担額の赤字より優先する */
+.negative,
+.owed-amount.negative,
+input.negative {
+  color: var(--income);
+}
+
+.sign-btn {
+  min-width: 2.5em;
+  font-weight: 700;
+}
+
 .mini {
   font-size: 0.72rem;
   color: var(--muted);
@@ -364,6 +378,13 @@ table {
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
+}
+
+.summary-table .total-row th,
+.summary-table .total-row td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
 }
 
 .summary-table .num {

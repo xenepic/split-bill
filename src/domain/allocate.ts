@@ -4,32 +4,55 @@ import { err, ok, type Result, type Share } from './types';
  * 支払額を負担額へ配分する（仕様 6.1 / 6.2）。
  * shares は参加者の表示順に並んでいる前提。fixed / excluded は保持し、auto のみ再計算する。
  *
- * 割り切れない場合の端数: 支払者だけが得をするよう、支払者以外の auto は切り上げ額
- * `ceil(R/m)` を負担し、支払者（auto の場合）が残りを負担する。
- * 例: 1,000円を3人（支払者含む）→ 支払者 332円、他 334円ずつ。
- * 支払者が auto でない場合や、金額が小さく支払者の負担が負になる場合は、
- * 余りを表示順に1円ずつ配分する。
+ * ここで求める auto の負担額は表示用の整数円。割り切れない場合は切り捨てた額を基本に、
+ * 余りを表示順の後ろの人から1円ずつ足す（例: 1,000円を3人 → 333 / 333 / 334）。
+ * 集計には整数ではなく正確な値（autoShareExact）を使い、端数は最終収支でまとめて扱う（balance.ts）。
+ *
+ * 支払額が負（収益）の場合は負担額も0以下になる（例: −1,000円を3人 → −334 / −333 / −333）。
  */
-export function allocateShares(
+export function allocateShares(amount: number, shares: Share[]): Result<Share[]> {
+  const split = autoShareExact(amount, shares);
+  if (!split.ok) return split;
+  const { rest, autoCount } = split.value;
+  const base = (autoCount > 0 ? Math.floor(rest / autoCount) : 0) || 0; // -0 を正規化
+  // 余り（0〜autoCount−1）を受け取る auto は表示順の後ろから
+  let skip = autoCount - (autoCount > 0 ? rest - base * autoCount : 0);
+  return ok(
+    shares.map((s): Share => {
+      if (s.mode === 'excluded') return { ...s, amount: 0 };
+      if (s.mode === 'fixed') return { ...s };
+      const extra = skip > 0 ? 0 : 1;
+      skip--;
+      return { ...s, amount: base + extra };
+    }),
+  );
+}
+
+/**
+ * auto の正確な負担額 `rest / autoCount`（各 auto が同額）を分子・分母で返す。
+ * fixed / excluded の検証もここで行う。
+ */
+export function autoShareExact(
   amount: number,
-  shares: Share[],
-  payerId: string | null = null,
-): Result<Share[]> {
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    return err('支払額は1円以上の整数で入力してください');
+  shares: readonly Share[],
+): Result<{ rest: number; autoCount: number }> {
+  if (!Number.isSafeInteger(amount) || amount === 0) {
+    return err('支払額は0以外の整数で入力してください');
   }
+  // 負担額は支払額と同じ符号（または0）に揃える。sign を掛けると正の場合と同じ判定になる
+  const sign = amount > 0 ? 1 : -1;
   let fixedTotal = 0;
   let autoCount = 0;
   for (const s of shares) {
     if (s.mode === 'fixed') {
-      if (!Number.isSafeInteger(s.amount) || s.amount < 0) return err('負担額が不正です');
+      if (!Number.isSafeInteger(s.amount) || s.amount * sign < 0) return err('負担額が不正です');
       fixedTotal += s.amount;
     } else if (s.mode === 'auto') {
       autoCount++;
     }
   }
   const rest = amount - fixedTotal;
-  if (rest < 0) {
+  if (rest * sign < 0) {
     return err(`固定負担額の合計（${fixedTotal.toLocaleString('ja-JP')}円）が支払額を超えています`);
   }
   if (autoCount === 0 && rest !== 0) {
@@ -40,29 +63,5 @@ export function allocateShares(
     );
   }
 
-  const payerIsAuto = shares.some((s) => s.personId === payerId && s.mode === 'auto');
-  const ceil = autoCount > 0 ? Math.ceil(rest / autoCount) : 0;
-  const payerAmount = rest - (autoCount - 1) * ceil;
-  if (payerIsAuto && payerAmount >= 0) {
-    return ok(
-      shares.map((s): Share => {
-        if (s.mode === 'excluded') return { ...s, amount: 0 };
-        if (s.mode === 'fixed') return { ...s };
-        return { ...s, amount: s.personId === payerId ? payerAmount : ceil };
-      }),
-    );
-  }
-
-  // 表示順に余りを1円ずつ配分
-  const base = autoCount > 0 ? Math.floor(rest / autoCount) : 0;
-  let remainder = autoCount > 0 ? rest - base * autoCount : 0;
-  return ok(
-    shares.map((s): Share => {
-      if (s.mode === 'excluded') return { ...s, amount: 0 };
-      if (s.mode === 'fixed') return { ...s };
-      const extra = remainder > 0 ? 1 : 0;
-      remainder -= extra;
-      return { ...s, amount: base + extra };
-    }),
-  );
+  return ok({ rest, autoCount });
 }

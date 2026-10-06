@@ -4,7 +4,7 @@ export type ShareMode = 'auto' | 'fixed' | 'excluded';
 
 export type Share = {
   personId: string;
-  amount: number; // 整数円
+  amount: number; // 整数円（支払額が負の行では0以下）
   mode: ShareMode;
 };
 
@@ -12,7 +12,7 @@ export type Expense = {
   id: string;
   title: string; // 空文字可
   payerId: string | null;
-  amount: number | null; // 未入力ならnull、入力済みは正の整数
+  amount: number | null; // 未入力ならnull、入力済みは0以外の整数（負は収益）
   shares: Share[]; // 全参加者分の状態を持つ
   order: number;
 };

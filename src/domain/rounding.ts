@@ -32,7 +32,7 @@ const floorTo = (b: number, unit: number) => Math.floor(b / unit) * unit + 0; //
 const ceilTo = (b: number, unit: number) => Math.ceil(b / unit) * unit + 0;
 
 /** 支払総額が多い順（同額なら表示順）の参加者インデックス */
-function payerPriority(paidAmounts: readonly number[]): number[] {
+export function payerPriority(paidAmounts: readonly number[]): number[] {
   return paidAmounts.map((_, i) => i).sort((a, b) => paidAmounts[b] - paidAmounts[a] || a - b);
 }
 
@@ -62,7 +62,7 @@ export function roundBalances(
   if (!isValidRoundingUnit(unit)) return err('丸め単位が不正です');
   if (balances.length !== paidAmounts.length) return err('入力の長さが一致しません');
   if (!balances.every((b) => Number.isSafeInteger(b))) return err('純残高が整数ではありません');
-  if (!paidAmounts.every((p) => Number.isSafeInteger(p) && p >= 0)) return err('支払額が不正です');
+  if (!paidAmounts.every((p) => Number.isSafeInteger(p))) return err('支払額が不正です');
   if (balances.reduce((s, b) => s + b, 0) !== 0) return err('純残高の合計が0ではありません');
 
   const grouped = roundGrouped(balances, paidAmounts, unit);

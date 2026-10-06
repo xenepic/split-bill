@@ -87,7 +87,7 @@ describe('App', () => {
   it('不正な金額入力は拒否', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await payIn(user, 1, '参加者1', '-100');
+    await payIn(user, 1, '参加者1', '1.5');
     expect(screen.getByRole('alert')).toHaveTextContent('整数');
     expect(summaryRow('参加者1')).toHaveTextContent('精算不要 0円');
   });
@@ -241,6 +241,55 @@ describe('App', () => {
     const cell = screen.getByRole('button', { name: /支出1 の 参加者1：支払 1,000円/ });
     expect(cell).toHaveTextContent('1,000/250');
     expect(within(cell).getByText('250')).toHaveClass('owed-amount');
+  });
+
+  it('モーダルの金額は Enter で確定して入力欄から離れ、次の欄へ移らない', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await payIn(user, 1, '参加者1', '1000');
+    await user.click(screen.getByRole('button', { name: /支出1 の 参加者1：支払/ }));
+    const dialog = screen.getByRole('dialog');
+    const paid = within(dialog).getByLabelText('支払額');
+    expect(paid).toHaveAttribute('enterkeyhint', 'done');
+    await user.clear(paid);
+    await user.type(paid, '2000{Enter}');
+    expect(paid).not.toHaveFocus();
+    expect(within(dialog).getByLabelText('参加者1 の自己負担額')).not.toHaveFocus();
+    expect(paid).toHaveValue('2,000');
+
+    const own = within(dialog).getByLabelText('参加者1 の自己負担額');
+    await user.clear(own);
+    await user.type(own, '800{Enter}');
+    expect(own).not.toHaveFocus();
+    expect(own).toHaveValue('800');
+  });
+
+  it('集計に支払者に関係なく総費用を表示する', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await payIn(user, 1, '参加者1', '1000');
+    await payIn(user, 2, '参加者2', '2500');
+    const table = screen.getByRole('region', { name: '集計' });
+    const total = within(table).getByRole('row', { name: /^合計（総費用）/ });
+    expect(total).toHaveTextContent('3,500円3,500円');
+  });
+
+  it('マイナスの支払額（収益）を入力でき、色を変えて表示する', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await payIn(user, 1, '参加者1', '-4000');
+    const cell = screen.getByRole('button', { name: /支出1 の 参加者1：支払 -4,000円/ });
+    expect(within(cell).getByText('-4,000')).toHaveClass('negative');
+    expect(within(summaryRow('参加者1')).getByText('−3,000円')).toBeInTheDocument();
+    expect(within(summaryRow('参加者2')).getByText('+1,000円')).toBeInTheDocument();
+
+    // ± ボタンで符号を切り替え
+    await user.click(cell);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByLabelText('支払額')).toHaveClass('negative');
+    await user.click(within(dialog).getByRole('button', { name: '支払額のプラス・マイナスを切り替え' }));
+    expect(within(dialog).getByLabelText('支払額')).toHaveValue('4,000');
+    expect(within(dialog).getByLabelText('支払額')).not.toHaveClass('negative');
   });
 
   it('表の縦横切替: 参加者が縦でも入力・Tab 移動ができ、選択を記憶する', async () => {

@@ -41,7 +41,13 @@ describe('parseYen', () => {
     expect(parseYen('')).toEqual({ ok: true, value: null });
     expect(parseYen('   ')).toEqual({ ok: true, value: null });
   });
-  it.each(['-1', '1.5', '1e3', 'Infinity', 'NaN', '12,34', '１００', '99999999999999999', '0x10'])(
+  it('マイナス記号付きは負数', () => {
+    expect(parseYen('-1,000')).toEqual({ ok: true, value: -1000 });
+    expect(parseYen('−500')).toEqual({ ok: true, value: -500 });
+    expect(parseYen('－500')).toEqual({ ok: true, value: -500 });
+    expect(parseYen('-0')).toEqual({ ok: true, value: 0 });
+  });
+  it.each(['--1', '1-', '1.5', '1e3', 'Infinity', 'NaN', '12,34', '１００', '99999999999999999', '0x10'])(
     '%s を拒否する',
     (s) => {
       expect(parseYen(s).ok).toBe(false);
@@ -56,39 +62,42 @@ describe('parseYen', () => {
 
 describe('allocateShares', () => {
   const sh = (mode: Share['mode'], amount = 0): Share => ({ personId: 'x', amount, mode });
-  it('No.5 1,000円を3人で均等割り → 334/333/333', () => {
+  it('No.5 1,000円を3人で均等割り → 表示は 333/333/334', () => {
     const r = unwrap(allocateShares(1000, [sh('auto'), sh('auto'), sh('auto')]));
-    expect(r.map((x) => x.amount)).toEqual([334, 333, 333]);
+    expect(r.map((x) => x.amount)).toEqual([333, 333, 334]);
   });
-  it('端数は支払者だけが得をする: 支払者以外は切り上げ、支払者が残り', () => {
-    const shares = ['a', 'b', 'c'].map((id): Share => ({ personId: id, amount: 0, mode: 'auto' }));
-    expect(unwrap(allocateShares(1000, shares, 'a')).map((x) => x.amount)).toEqual([332, 334, 334]);
-    expect(unwrap(allocateShares(1000, shares, 'c')).map((x) => x.amount)).toEqual([334, 334, 332]);
-    expect(unwrap(allocateShares(1001, [...shares, { personId: 'd', amount: 0, mode: 'auto' }], 'b')).map((x) => x.amount)).toEqual([251, 248, 251, 251]);
-    // 割り切れる場合は均等
-    expect(unwrap(allocateShares(900, shares, 'a')).map((x) => x.amount)).toEqual([300, 300, 300]);
+  it('表示用の端数は表示順の後ろの auto から1円ずつ（固定・対象外は飛ばす）', () => {
+    expect(unwrap(allocateShares(1001, [sh('excluded'), sh('auto'), sh('auto')])).map((x) => x.amount)).toEqual([0, 500, 501]);
+    expect(unwrap(allocateShares(1002, [sh('auto'), sh('auto'), sh('fixed', 100), sh('auto')])).map((x) => x.amount)).toEqual([300, 301, 100, 301]);
+    expect(unwrap(allocateShares(-1000, [sh('auto'), sh('auto'), sh('auto')])).map((x) => x.amount)).toEqual([-334, -333, -333]);
+    expect(unwrap(allocateShares(900, [sh('auto'), sh('auto'), sh('auto')])).map((x) => x.amount)).toEqual([300, 300, 300]);
   });
 
-  it('支払者が auto でない、または支払者の負担が負になる場合は表示順に配分', () => {
-    const sh3 = (payerMode: Share['mode']): Share[] => [
-      { personId: 'a', amount: 0, mode: payerMode },
-      { personId: 'b', amount: 0, mode: 'auto' },
-      { personId: 'c', amount: 0, mode: 'auto' },
-    ];
-    expect(unwrap(allocateShares(1001, sh3('excluded'), 'a')).map((x) => x.amount)).toEqual([0, 501, 500]);
-    const four = ['a', 'b', 'c', 'd'].map((id): Share => ({ personId: id, amount: 0, mode: 'auto' }));
-    // 5円/4人: 他を2円にすると支払者が −1円になるため表示順配分
-    expect(unwrap(allocateShares(5, four, 'a')).map((x) => x.amount)).toEqual([2, 1, 1, 1]);
-  });
-
-  it('支払者変更で端数の負担者も変わる（固定・対象外は保持）', () => {
+  it('集計は正確な値（1000/3）で行い、最終収支の端数は支払総額が多い人が得をする', () => {
     const { s, A, B, D, e } = setup();
     let st = unwrap(setPayment(s, e[0], A, 1000));
     st = unwrap(setShareMode(st, e[0], D, 'excluded'));
-    expect(amounts(st)).toEqual([332, 334, 334, 0]);
+    expect(amounts(st)).toEqual([333, 333, 334, 0]);
+    // 正確な収支: A +666.67 / B −333.33 / C −333.33 → A が得をし、残りは表示順
+    expect(balances(st)).toEqual([667, -333, -334, 0]);
+    // 支払者を変えても負担額の表示は変わらず、得をする人が変わる
     st = unwrap(setPayer(st, e[0], B));
-    expect(amounts(st)).toEqual([334, 332, 334, 0]);
-    expect(st.expenses[0].shares[3].mode).toBe('excluded');
+    expect(amounts(st)).toEqual([333, 333, 334, 0]);
+    expect(balances(st)).toEqual([-333, 667, -334, 0]);
+  });
+
+  it('端数は行ごとに丸めず合算してから丸める', () => {
+    const { s, A, B, D, e } = setup();
+    // A/B/C の3人で 100円の支出を3件（A, A, B が支払い）
+    let st = s;
+    st = unwrap(setPayment(st, e[0], A, 100));
+    st = unwrap(setPayment(st, e[1], A, 100));
+    st = unwrap(setPayment(st, e[2], B, 100));
+    for (const id of e) st = unwrap(setShareMode(st, id, D, 'excluded'));
+    // 各人の正確な負担は 100円ちょうど → 収支 A +100 / B 0 / C −100（行ごとの丸めなら1円ずれる）
+    expect(balances(st)).toEqual([100, 0, -100, 0]);
+    const rows = unwrap(computeBalances(st));
+    expect(rows.map((r) => r.owed)).toEqual([100, 100, 100, 0]);
   });
 
   it('No.6 1人対象外 → 0 / 500 / 500', () => {
@@ -130,7 +139,6 @@ describe('受入テスト 1〜4, 7', () => {
     st = unwrap(setShareAmount(st, e[0], D, 3000));
     const r = setShareAmount(st, e[0], B, 2500);
     expect(r.ok).toBe(false);
-    // 端数は支払者 A が吸収（他は切り上げ）
     expect(amounts(st)).toEqual([666, 667, 667, 3000]);
   });
 
@@ -159,6 +167,31 @@ describe('受入テスト 1〜4, 7', () => {
     st = unwrap(setShareMode(st, e[0], A, 'excluded'));
     expect(amounts(st)).toEqual([0, 1000, 1000, 1000]);
     expect(balances(st)).toEqual([3000, -1000, -1000, -1000]);
+  });
+
+  it('マイナスの支払額（収益）を配分し、収支に反映する', () => {
+    const { s, A, B, D, e } = setup();
+    // −1,000円を4人 → 他は −250円ずつ
+    let st = unwrap(setPayment(s, e[0], A, -1000));
+    expect(amounts(st)).toEqual([-250, -250, -250, -250]);
+    expect(balances(st)).toEqual([-750, 250, 250, 250]);
+    // −1,001円 → 表示は −251/−250/−250/−250、収支は正確な −250.25 ずつから丸める
+    st = unwrap(setPayment(st, e[0], A, -1001));
+    expect(amounts(st)).toEqual([-251, -250, -250, -250]);
+    expect(balances(st)).toEqual([-751, 251, 250, 250]);
+    // 負担額は0以下のみ
+    expect(setShareAmount(st, e[0], B, 100).ok).toBe(false);
+    st = unwrap(setShareAmount(st, e[0], D, -400));
+    expect(amounts(st)).toEqual([-201, -200, -200, -400]);
+    // 50円丸めでも支払総額がマイナスの人を扱える
+    expect(computeSettlement(st, { kind: 'rounded', unit: 50 }).ok).toBe(true);
+    // 符号を反転すると固定額も反転する
+    st = unwrap(setPayment(st, e[0], A, 1001));
+    expect(amounts(st)).toEqual([200, 200, 201, 400]);
+    expect(st.expenses[0].shares[3]).toMatchObject({ amount: 400, mode: 'fixed' });
+    // 端数が小さくても -0 にならない
+    st = unwrap(setPayment(s, e[1], A, -1));
+    expect(amounts(st, 1).every((x) => !Object.is(x, -0))).toBe(true);
   });
 
   it('支払額0/空で行を未入力に戻す（空行は計算しない）', () => {

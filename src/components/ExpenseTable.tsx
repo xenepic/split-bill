@@ -101,6 +101,9 @@ function PersonHeader({
   );
 }
 
+/** マイナス（収益）の金額は色を変えて表示する */
+const signClass = (base: string, n: number) => (n < 0 ? `${base} negative` : base);
+
 function ExpenseCell({
   api,
   expense,
@@ -142,9 +145,9 @@ function ExpenseCell({
     return (
       <td className="cell cell-payer">
         <button type="button" className="cell-btn" aria-label={`${label}：支払 ${formatYen(expense.amount!)}円、自己負担 ${self.mode === 'excluded' ? 'なし（対象外）' : formatYen(self.amount) + '円'}。編集`} onClick={onOpen}>
-          <span className="paid-amount">{formatYen(expense.amount!)}</span>
+          <span className={signClass('paid-amount', expense.amount!)}>{formatYen(expense.amount!)}</span>
           <span className="mini">
-            /<span className="owed-amount">{self.mode === 'excluded' ? '—' : formatYen(self.amount)}</span>
+            /<span className={signClass('owed-amount', self.amount)}>{self.mode === 'excluded' ? '—' : formatYen(self.amount)}</span>
             {self.mode === 'fixed' && ' 🔒'}
           </span>
         </button>
@@ -171,7 +174,7 @@ function ExpenseCell({
         aria-label={`${label}：負担 ${formatYen(share.amount)}円${share.mode === 'fixed' ? '（固定）' : ''}。編集`}
         onClick={onOpen}
       >
-        <span className="owed-amount">
+        <span className={signClass('owed-amount', share.amount)}>
           {formatYen(share.amount)}
           {share.mode === 'fixed' && (
             <span className="lock" title="固定">
@@ -311,7 +314,8 @@ export function ExpenseTable({ api, requestConfirm, onAddPerson }: Props) {
       <p className="hint">
         未入力の支出では、支払った人の欄に金額を入力するとその人が支払者になります。
         <span className="legend-inline">
-          <b>太字</b>=支払額、<span className="owed-amount">赤字</span>=負担額、🔒=固定、—=対象外
+          <b>太字</b>=支払額、<span className="owed-amount">赤字</span>=負担額、
+          <span className="negative">緑字</span>=マイナス（収益）、🔒=固定、—=対象外
         </span>
       </p>
       <div className="table-scroll" ref={scrollRef}>

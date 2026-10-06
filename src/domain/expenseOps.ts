@@ -24,7 +24,7 @@ export function sortedPersons(persons: Person[]): Person[] {
 }
 
 export function isExpenseActive(e: Expense): boolean {
-  return e.payerId !== null && e.amount !== null && e.amount > 0;
+  return e.payerId !== null && e.amount !== null && e.amount !== 0;
 }
 
 /** shares を参加者の表示順へ並べ替える（欠けた参加者は auto で補う） */
@@ -40,7 +40,7 @@ function reallocate(expense: Expense, shares: Share[], persons: Person[]): Resul
   if (expense.amount === null) {
     return ok({ ...expense, shares: ordered.map((s) => ({ ...s, amount: 0 })) });
   }
-  const r = allocateShares(expense.amount, ordered, expense.payerId);
+  const r = allocateShares(expense.amount, ordered);
   if (!r.ok) return r;
   return ok({ ...expense, shares: r.value });
 }
@@ -108,7 +108,7 @@ export function setExpenseTitle(state: AppState, expenseId: string, title: strin
 }
 
 /**
- * 支払者と支払額を設定する。amount が null / 0 の場合は行を未入力に戻す
+ * 支払者と支払額を設定する。負の支払額は収益（競馬の払戻など）を表す。amount が null / 0 の場合は行を未入力に戻す
  * （対象外は保持し、固定は解除する）。支払額変更時は fixed / excluded を保持して auto のみ再計算。
  */
 export function setPayment(
@@ -130,14 +130,19 @@ export function setPayment(
         })),
       });
     }
-    if (!Number.isSafeInteger(amount) || amount < 0) return err('支払額は1円以上の整数で入力してください');
+    if (!Number.isSafeInteger(amount)) return err('支払額は整数で入力してください');
     if (payerId === null) return err('支払者を選択してください');
     if (!state.persons.some((p) => p.id === payerId)) return err('支払者が見つかりません');
-    return reallocate({ ...e, payerId, amount }, e.shares, state.persons);
+    // 支払額の符号が変わったら、固定の負担額も符号を反転して支払額に揃える
+    const flipped = e.amount !== null && e.amount > 0 !== amount > 0;
+    const shares = flipped
+      ? e.shares.map((s) => (s.mode === 'fixed' ? { ...s, amount: -s.amount || 0 } : s))
+      : e.shares;
+    return reallocate({ ...e, payerId, amount }, shares, state.persons);
   });
 }
 
-/** 支払者を変更する。固定・対象外は保持し、端数を新しい支払者が負担するよう auto のみ再計算する */
+/** 支払者を変更する。固定・対象外は保持する（負担額は支払者に依存しない） */
 export function setPayer(state: AppState, expenseId: string, payerId: string): Result<AppState> {
   if (!state.persons.some((p) => p.id === payerId)) return err('支払者が見つかりません');
   return updateExpense(state, expenseId, (e) => {
@@ -153,9 +158,11 @@ export function setShareAmount(
   personId: string,
   amount: number,
 ): Result<AppState> {
-  if (!Number.isSafeInteger(amount) || amount < 0) return err('負担額は0以上の整数で入力してください');
+  if (!Number.isSafeInteger(amount)) return err('負担額は整数で入力してください');
   return updateExpense(state, expenseId, (e) => {
     if (e.amount === null) return err('支払額が未入力の行には負担額を設定できません');
+    if (e.amount > 0 && amount < 0) return err('支払額がプラスの行では、負担額は0以上で入力してください');
+    if (e.amount < 0 && amount > 0) return err('支払額がマイナスの行では、負担額は0以下で入力してください');
     const shares = normalizeShares(e.shares, state.persons).map((s) =>
       s.personId === personId ? { ...s, amount, mode: 'fixed' as const } : s,
     );
